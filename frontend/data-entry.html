@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Entry - PulseGrid</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div style="max-width: 900px; margin: 0 auto; padding: 20px;">
+    <h1>📊 Daily Data Entry</h1>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+        <form id="districtForm">
+            <h3>Add District</h3>
+            <input type="text" id="distId" placeholder="Code (e.g., CHN)" maxlength="10" required style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px;">
+            <input type="text" id="distName" placeholder="Name" required style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px;">
+            <input type="text" id="distState" placeholder="State" required style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px;">
+            <input type="number" id="distLat" placeholder="Latitude" step="0.01" required style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px;">
+            <input type="number" id="distLon" placeholder="Longitude" step="0.01" required style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px;">
+            <button type="submit" style="width: 100%; padding: 10px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">Add District</button>
+        </form>
+
+        <form id="medicineForm">
+            <h3>Add Medicine</h3>
+            <input type="text" id="medName" placeholder="Medicine name" required style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px;">
+            <input type="text" id="medUnit" placeholder="Unit (tabs, vials...)" required style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px;">
+            <input type="text" id="medCategory" placeholder="Category (optional)" style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px;">
+            <input type="number" id="medMinStock" placeholder="Min stock level" min="0" value="100" style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px;">
+            <button type="submit" style="width: 100%; padding: 10px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">Add Medicine</button>
+        </form>
+    </div>
+
+    <div style="background: #ecf0f1; padding: 20px; border-radius: 8px;">
+        <h3>Quick Setup</h3>
+        <p>Enter at least 2 districts and 5 medicines to get started. Then add PHCs and enter daily data.</p>
+        <button id="quickSetup" style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Load Demo Districts & Medicines</button>
+    </div>
+
+    <div id="status" style="margin-top: 20px; padding: 10px; display: none; border-radius: 4px;"></div>
+</div>
+
+<script>
+const token = localStorage.getItem('token');
+if (!token) window.location = '/setup.html';
+
+async function status(msg, type = 'info') {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.style.background = type === 'error' ? '#fadbd8' : type === 'success' ? '#d5f4e6' : '#d6eaf8';
+    el.style.color = type === 'error' ? '#c0392b' : type === 'success' ? '#27ae60' : '#2980b9';
+    el.style.display = 'block';
+}
+
+document.getElementById('districtForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const res = await fetch('/api/districts', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+        body: JSON.stringify({
+            id: document.getElementById('distId').value,
+            name: document.getElementById('distName').value,
+            state: document.getElementById('distState').value,
+            lat: parseFloat(document.getElementById('distLat').value),
+            lon: parseFloat(document.getElementById('distLon').value)
+        })
+    });
+    if (res.ok) {
+        status('✓ District added', 'success');
+        document.getElementById('districtForm').reset();
+    } else {
+        status('✗ ' + (await res.text()), 'error');
+    }
+};
+
+document.getElementById('medicineForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const res = await fetch('/api/medicines', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+        body: JSON.stringify({
+            name: document.getElementById('medName').value,
+            unit: document.getElementById('medUnit').value,
+            category: document.getElementById('medCategory').value || null,
+            min_stock_level: parseInt(document.getElementById('medMinStock').value)
+        })
+    });
+    if (res.ok) {
+        status('✓ Medicine added', 'success');
+        document.getElementById('medicineForm').reset();
+    } else {
+        status('✗ ' + (await res.text()), 'error');
+    }
+};
+
+document.getElementById('quickSetup').onclick = async () => {
+    // Add 2 demo districts
+    for (const d of [
+        {id: 'CHN', name: 'Chennai', state: 'Tamil Nadu', lat: 13.0827, lon: 80.2707},
+        {id: 'MDU', name: 'Madurai', state: 'Tamil Nadu', lat: 9.9252, lon: 78.1193}
+    ]) {
+        await fetch('/api/districts', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+            body: JSON.stringify(d)
+        });
+    }
+
+    // Add 5 demo medicines
+    for (const m of [
+        {name: 'Paracetamol 500mg', unit: 'tabs', category: 'analgesic'},
+        {name: 'Amoxicillin 500mg', unit: 'tabs', category: 'antibiotic'},
+        {name: 'Vitamin C', unit: 'tabs', category: 'supplement'},
+        {name: 'Ibuprofen 400mg', unit: 'tabs', category: 'analgesic'},
+        {name: 'Metformin 500mg', unit: 'tabs', category: 'antidiabetic'}
+    ]) {
+        await fetch('/api/medicines', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`},
+            body: JSON.stringify({...m, min_stock_level: 100})
+        });
+    }
+
+    status('✓ Demo setup complete. Go to dashboard to add PHCs.', 'success');
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - PulseGrid</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body style="background: #f5f6fa;">
+<div style="max-width: 1200px; margin: 0 auto; padding: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h1>?? Dashboard</h1>
+        <button onclick="logout()" style="padding: 8px 16px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer;">Logout</button>
+    </div>
+    
+    <div id="loading" style="text-align: center; padding: 40px;"><p>Loading...</p></div>
+    
+    <div id="content" style="display: none;">
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px;">
+            <div style="background: #3498db; color: white; padding: 20px; border-radius: 8px;"><div style="font-size: 12px;">Districts</div><div style="font-size: 32px; font-weight: bold;" id="dc">-</div></div>
+            <div style="background: #27ae60; color: white; padding: 20px; border-radius: 8px;"><div style="font-size: 12px;">PHCs</div><div style="font-size: 32px; font-weight: bold;" id="pc">-</div></div>
+            <div style="background: #9b59b6; color: white; padding: 20px; border-radius: 8px;"><div style="font-size: 12px;">Medicines</div><div style="font-size: 32px; font-weight: bold;" id="mc">-</div></div>
+            <div style="background: #e74c3c; color: white; padding: 20px; border-radius: 8px;"><div style="font-size: 12px;">Alerts</div><div style="font-size: 32px; font-weight: bold;">0</div></div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+            <div style="background: white; padding: 20px; border-radius: 8px;"><h3>Actions</h3>
+                <button onclick="addPHC()" style="width: 100%; padding: 12px; margin: 8px 0; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Add PHC</button>
+                <button onclick="recordData()" style="width: 100%; padding: 12px; margin: 8px 0; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Record Data</button>
+                <button onclick="window.location='/data-entry.html'" style="width: 100%; padding: 12px; margin: 8px 0; background: #9b59b6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Setup</button>
+            </div>
+            <div style="background: white; padding: 20px; border-radius: 8px;"><h3>Districts</h3><div id="dl" style="max-height: 200px; overflow-y: auto;"></div></div>
+        </div>
+        
+        <div style="background: white; padding: 20px; border-radius: 8px;"><h3>PHCs</h3><div id="pl" style="max-height: 400px; overflow-y: auto;"></div></div>
+    </div>
+</div>
+
+<div id="mod" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; width: 90%; max-width: 500px;">
+        <h3 id="mt">Title</h3>
+        <form id="mf"><div id="mc"></div><button type="submit" style="width: 100%; padding: 12px; background: #3498db; color: white; border: none; margin-top: 20px; cursor: pointer;">Save</button><button type="button" onclick="closeMod()" style="width: 100%; padding: 12px; background: #95a5a6; color: white; border: none; margin-top: 10px; cursor: pointer;">Cancel</button></form>
+    </div>
+</div>
+
+<script>
+const token = localStorage.getItem('token');
+if (!token) window.location = '/';
+
+async function load() {
+    const r = await fetch('/api/setup/status', {headers: {Authorization: 'Bearer ' + token}});
+    const d = await r.json();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+    document.getElementById('dc').textContent = d.counts.districts;
+    document.getElementById('pc').textContent = d.counts.phcs;
+    document.getElementById('mc').textContent = d.counts.medicines;
+    
+    const dr = await fetch('/api/districts', {headers: {Authorization: 'Bearer ' + token}});
+    if (dr.ok) document.getElementById('dl').innerHTML = (await dr.json()).map(d => `<div style="padding: 8px; border-bottom: 1px solid #ecf0f1;"><strong>${d.name}</strong> (${d.id}) - ${d.phc_count} PHCs</div>`).join('') || 'None yet';
+    
+    const pr = await fetch('/api/get_phc_data?all=1', {headers: {Authorization: 'Bearer ' + token}});
+    if (pr.ok) {
+        const pd = await pr.json();
+        const pl = Array.isArray(pd.phcs) ? pd.phcs : Object.values(pd.phcs || {});
+        document.getElementById('pl').innerHTML = pl.length ? pl.map(p => `<div style="padding: 12px; border: 1px solid #ecf0f1; margin: 8px 0; border-radius: 4px; background: #f8f9fa;"><strong>${p.name}</strong> (${p.id})<br><small style="color: #7f8c8d;">Beds: ${p.beds_occupied}/${p.beds_total} | Staff: ${p.staff_present}/${p.staff_total}</small></div>`).join('') : '<p>No PHCs. Click "Add PHC".</p>';
+    } else document.getElementById('pl').innerHTML = '<p>Click "Add PHC" to start.</p>';
+}
+
+function addPHC() {
+    document.getElementById('mt').textContent = 'Add PHC';
+    document.getElementById('mc').innerHTML = `
+        <input type="text" id="pn" placeholder="PHC Name" required style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px; box-sizing: border-box;">
+        <input type="text" id="pd" placeholder="District ID" required style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px; box-sizing: border-box;">
+        <input type="number" id="pb" placeholder="Total Beds" value="20" style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px; box-sizing: border-box;">
+        <input type="number" id="ps" placeholder="Total Staff" value="5" style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px; box-sizing: border-box;">
+    `;
+    document.getElementById('mf').onsubmit = async (e) => {
+        e.preventDefault();
+        const res = await fetch('/api/add_phc', {method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token}, body: JSON.stringify({name: document.getElementById('pn').value, district_id: document.getElementById('pd').value, lat: 10, lon: 80, beds_total: parseInt(document.getElementById('pb').value), staff_total: parseInt(document.getElementById('ps').value), initial_stock: []})});
+        if (res.ok) { alert('? PHC added'); closeMod(); load(); } else alert('Error');
+    };
+    document.getElementById('mod').style.display = 'block';
+}
+
+function recordData() {
+    document.getElementById('mt').textContent = 'Record Daily Data';
+    document.getElementById('mc').innerHTML = `
+        <input type="text" id="dp" placeholder="PHC ID" required style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px; box-sizing: border-box;">
+        <input type="number" id="dpt" placeholder="Patients" value="0" style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px; box-sizing: border-box;">
+        <input type="number" id="db" placeholder="Beds Occupied" value="0" style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px; box-sizing: border-box;">
+        <input type="number" id="ds" placeholder="Staff Present" value="0" style="width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #bdc3c7; border-radius: 4px; box-sizing: border-box;">
+    `;
+    document.getElementById('mf').onsubmit = async (e) => {
+        e.preventDefault();
+        const p = document.getElementById('dp').value;
+        await fetch('/api/update_patients', {method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token}, body: JSON.stringify({phc_id: p, patients: parseInt(document.getElementById('dpt').value)})});
+        await fetch('/api/update_beds', {method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token}, body: JSON.stringify({phc_id: p, beds_occupied: parseInt(document.getElementById('db').value)})});
+        await fetch('/api/update_staff', {method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token}, body: JSON.stringify({phc_id: p, present: parseInt(document.getElementById('ds').value)})});
+        alert('? Data saved'); closeMod(); load();
+    };
+    document.getElementById('mod').style.display = 'block';
+}
+
+function closeMod() { document.getElementById('mod').style.display = 'none'; }
+function logout() { localStorage.removeItem('token'); window.location = '/'; }
+load();
+</script>
+</body>
+</html>

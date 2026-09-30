@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in · PulseGrid</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    (async () => {
+      const res = await fetch('/api/setup/status');
+      if (res.ok) {
+        const {needs_setup} = await res.json();
+        if (needs_setup) window.location = '/setup.html';
+      }
+    })();
+  </script>
+</head>
+<body>
+  <div class="login-page">
+    <section class="login-side">
+      <div>
+        <div class="brand" style="padding:0">
+          <div class="brand-mark"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M12 9v6M9 12h6"/></svg></div>
+          <div><div class="brand-name">PulseGrid</div><div class="brand-tag">Federated PHC Resilience Platform</div></div>
+        </div>
+        <h1>Every Primary Health Centre, stocked and ready before the surge.</h1>
+        <p>Real-time visibility of medicines, beds and staff across the national PHC network, with AI forecasts, stock-out early warnings and automatic redistribution between districts.</p>
+        <div class="feature-list">
+          <div class="feature"><div class="feature-ico">📈</div><div><b>Probabilistic demand forecasting</b><span>7/14/30-day patient and medicine forecasts with confidence ranges and stock-out risk %.</span></div></div>
+          <div class="feature"><div class="feature-ico">🔁</div><div><b>Expiry-aware redistribution</b><span>Moves surplus and near-expiry stock to the PHCs that will run out first, nearest donor first.</span></div></div>
+          <div class="feature"><div class="feature-ico">🧪</div><div><b>Emergency what-if simulation</b><span>Stress-test the network against outbreaks, heatwaves or floods before they happen.</span></div></div>
+          <div class="feature"><div class="feature-ico">🌐</div><div><b>Federated learning across BRICS</b><span>Countries share model updates, never patient data.</span></div></div>
+        </div>
+      </div>
+      <div class="brics"><span>🇧🇷 Brazil</span><span>🇷🇺 Russia</span><span>🇮🇳 India</span><span>🇨🇳 China</span><span>🇿🇦 South Africa</span><span>+ partners</span></div>
+    </section>
+
+    <main class="login-main">
+      <div class="login-card">
+        <h2>Sign in</h2>
+        <p class="muted">Choose your role to access your dashboard.</p>
+
+        <div class="role-tabs" role="tablist">
+          <button class="role-tab active" data-role="admin" type="button">🏛️<span>Admin</span></button>
+          <button class="role-tab" data-role="district" type="button">🗺️<span>District Officer</span></button>
+          <button class="role-tab" data-role="phc" type="button">🏥<span>PHC Staff</span></button>
+        </div>
+
+        <form class="login-form" id="loginForm" autocomplete="off">
+          <div class="field">
+            <label for="username">Username</label>
+            <input type="text" id="username" placeholder="e.g. admin" required>
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="••••••••" required>
+          </div>
+          <div class="error-msg" id="error"></div>
+          <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+        </form>
+
+        <div class="demo-box">
+          <h4>Demo accounts (click to fill)</h4>
+          <div id="demoList"></div>
+        </div>
+        <p class="small muted" id="modeNote" style="margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"></p>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/layout.js"></script>
+  <script>
+    // Find out whether the backend is running, then show which mode we are in
+    const detected = Api.detect().then((live) => {
+      const existing = Auth.session();
+      if (existing && !!existing.live === live && (!live || Api.hasToken())) location.replace(Auth.HOME[existing.role]);
+      UI.$('#modeNote').innerHTML = live
+        ? '<span class="mode-chip live"><i></i>Live</span> Connected to the PulseGrid backend. Data comes from the SQL database.'
+        : '<span class="mode-chip"><i></i>Demo data</span> Backend not running, so the app uses built-in demo data.';
+    });
+
+    let role = 'admin';
+    const tabs = UI.$$('.role-tab');
+    function renderDemo() {
+      UI.$('#demoList').innerHTML = Auth.USERS.filter((u) => u.role === role).map((u) =>
+        `<button class="demo-chip" type="button" data-u="${u.username}" data-p="${u.password}">
+           <span>${UI.esc(u.name)}</span><code>${u.username} / ${u.password}</code></button>`).join('');
+      UI.$$('.demo-chip').forEach((b) => b.onclick = () => {
+        UI.$('#username').value = b.dataset.u; UI.$('#password').value = b.dataset.p;
+      });
+    }
+    tabs.forEach((t) => t.onclick = () => {
+      tabs.forEach((x) => x.classList.toggle('active', x === t));
+      role = t.dataset.role;
+      UI.$('#error').style.display = 'none';
+      renderDemo();
+    });
+    renderDemo();
+
+    UI.$('#loginForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = e.target.querySelector('button[type=submit]');
+      btn.disabled = true;
+      await detected;
+      const res = await Auth.login(UI.$('#username').value, UI.$('#password').value, role);
+      btn.disabled = false;
+      if (!res.ok) { const el = UI.$('#error'); el.textContent = res.error; el.style.display = 'block'; return; }
+      location.href = res.home;
+    };
+  </script>
+</body>
+</html>

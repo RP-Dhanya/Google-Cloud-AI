@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PulseGrid - Setup</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div style="max-width: 500px; margin: 60px auto; padding: 20px;">
+    <h1 style="text-align: center; color: #2c3e50;">🏥 PulseGrid Setup</h1>
+    <p style="text-align: center; color: #7f8c8d; margin-bottom: 40px;">Configure your health resource platform</p>
+
+    <form id="setupForm" style="display: none;">
+        <h2>Create Administrator</h2>
+        <input type="text" placeholder="Username" id="adminUser" required style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #bdc3c7; border-radius: 4px;">
+        <input type="password" placeholder="Password (8+ chars)" id="adminPass" required style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #bdc3c7; border-radius: 4px;">
+        <input type="text" placeholder="Full name" id="adminName" required style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #bdc3c7; border-radius: 4px;">
+        <button type="submit" style="width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px;">Create Account</button>
+    </form>
+
+    <div id="waiting" style="text-align: center;">
+        <p>Checking system status...</p>
+        <div style="display: inline-block; width: 30px; height: 30px; border: 3px solid #ecf0f1; border-top-color: #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+    </div>
+
+    <style>
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</div>
+
+<script>
+async function init() {
+    const res = await fetch('/api/setup/status');
+    const data = await res.json();
+    document.getElementById('waiting').style.display = 'none';
+
+    if (data.needs_setup) {
+        document.getElementById('setupForm').style.display = 'block';
+        document.getElementById('setupForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const setupRes = await fetch('/api/setup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    username: document.getElementById('adminUser').value,
+                    password: document.getElementById('adminPass').value,
+                    name: document.getElementById('adminName').value
+                })
+            });
+            if (setupRes.ok) {
+                const {access_token} = await setupRes.json();
+                localStorage.setItem('token', access_token);
+                window.location = '/';
+            } else {
+                alert('Setup failed: ' + (await setupRes.text()));
+            }
+        };
+    } else {
+        document.getElementById('setupForm').innerHTML = '<p style="color: #27ae60; text-align: center;">✓ System already configured. <a href="/" style="color: #3498db;">Go to dashboard</a></p>';
+    }
+}
+
+init();
+</script>
+</body>
+</html>

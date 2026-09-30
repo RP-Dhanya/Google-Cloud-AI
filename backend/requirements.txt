@@ -1,0 +1,7 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pyjwt>=2.8
+python-multipart>=0.0.9
+# testing
+httpx>=0.27
+pytest>=8
