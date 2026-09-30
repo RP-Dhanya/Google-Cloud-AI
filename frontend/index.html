@@ -59,10 +59,7 @@
           <button class="btn btn-primary btn-block" type="submit">Sign in</button>
         </form>
 
-        <div class="demo-box">
-          <h4>Demo accounts (click to fill)</h4>
-          <div id="demoList"></div>
-        </div>
+        <!-- Demo accounts section removed for security -->
         <p class="small muted" id="modeNote" style="margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"></p>
       </div>
     </main>
@@ -85,21 +82,11 @@
 
     let role = 'admin';
     const tabs = UI.$$('.role-tab');
-    function renderDemo() {
-      UI.$('#demoList').innerHTML = Auth.USERS.filter((u) => u.role === role).map((u) =>
-        `<button class="demo-chip" type="button" data-u="${u.username}" data-p="${u.password}">
-           <span>${UI.esc(u.name)}</span><code>${u.username} / ${u.password}</code></button>`).join('');
-      UI.$$('.demo-chip').forEach((b) => b.onclick = () => {
-        UI.$('#username').value = b.dataset.u; UI.$('#password').value = b.dataset.p;
-      });
-    }
     tabs.forEach((t) => t.onclick = () => {
       tabs.forEach((x) => x.classList.toggle('active', x === t));
       role = t.dataset.role;
       UI.$('#error').style.display = 'none';
-      renderDemo();
     });
-    renderDemo();
 
     UI.$('#loginForm').onsubmit = async (e) => {
       e.preventDefault();
