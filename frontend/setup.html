@@ -50,7 +50,7 @@ async function init() {
             });
             if (setupRes.ok) {
                 const {access_token} = await setupRes.json();
-                localStorage.setItem('token', access_token);
+                localStorage.setItem('phc_token', access_token);
                 window.location = '/';
             } else {
                 alert('Setup failed: ' + (await setupRes.text()));
